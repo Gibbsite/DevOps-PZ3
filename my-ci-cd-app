@@ -1,19 +1,21 @@
-apiVersion: argoproj.io/v1alpha1
-kind: Application
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: my-mlops-project
-  namespace: argocd
+  name: my-ml-model
+  labels:
+    app: ml-model
 spec:
-  project: default
-  source:
-    # ТУТ ВСТАВТЕ ПОСИЛАННЯ НА ВАШ GITHUB РЕПОЗИТОРІЙ
-    repoURL: 'https://github.com/ВАШ_ЛОГІН/ВАШ_РЕПОЗИТОРІЙ.git'
-    targetRevision: HEAD
-    path: . # Шукати YAML файли в корені репозиторію
-  destination:
-    server: 'https://kubernetes.default.svc'
-    namespace: default
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ml-model
+  template:
+    metadata:
+      labels:
+        app: ml-model
+    spec:
+      containers:
+      - name: model-server
+        image: nginx:alpine # Використовуємо легкий образ для тесту
+        ports:
+        - containerPort: 80

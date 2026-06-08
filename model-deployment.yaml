@@ -1,0 +1,150 @@
+# PIPELINE DEFINITION
+# Name: my-pipeline
+# Description: Pipeline for lab #3 (Based on Colab Example)
+# Inputs:
+#    url: str
+components:
+  comp-merge-csv-op:
+    executorLabel: exec-merge-csv-op
+    inputDefinitions:
+      artifacts:
+        tar_data:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+      parameters:
+        payload:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        output_csv:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-web-downloader-op:
+    executorLabel: exec-web-downloader-op
+    inputDefinitions:
+      parameters:
+        url:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        data:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+deploymentSpec:
+  executors:
+    exec-merge-csv-op:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - merge_csv_op
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'pandas==2.1.4'\
+          \  &&  python3 -m pip install --quiet --no-warn-script-location 'kfp==2.16.1'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef merge_csv_op(\n    tar_data: dsl.Input[dsl.Dataset], \n    payload:\
+          \ str,\n    output_csv: dsl.Output[dsl.Dataset]\n):\n    import pandas as\
+          \ pd\n    import io\n\n    print(\"Reading downloaded data...\")\n\n   \
+          \ try:\n        df1 = pd.read_csv(tar_data.path)\n    except Exception as\
+          \ e:\n        print(f\"Error reading dataset: {e}\")\n        df1 = pd.DataFrame(columns=['column_1',\
+          \ 'column_2'])\n\n    print(\"Creating payload DataFrame...\")\n    try:\n\
+          \        df2 = pd.read_csv(io.StringIO(payload), header=None, names=df1.columns)\n\
+          \    except Exception as e:\n        df2 = pd.DataFrame([[payload, \"\"\
+          ]], columns=['column_1', 'column_2'])\n\n    print(\"Merging dataframes...\"\
+          )\n    df3 = pd.concat([df1, df2], ignore_index=True)\n\n    print(f\"Saving\
+          \ merged data to {output_csv.path}...\")\n    df3.to_csv(output_csv.path,\
+          \ index=False)\n    print(\"Merge completed.\")\n\n"
+        image: python:3.11
+    exec-web-downloader-op:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - web_downloader_op
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.16.1'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef web_downloader_op(url: str, data: dsl.Output[dsl.Dataset]):\n\
+          \    import urllib.request\n    print(f\"Downloading file from {url}...\"\
+          )\n    urllib.request.urlretrieve(url, data.path)\n    print(\"Download\
+          \ completed.\")\n\n"
+        image: python:3.11
+pipelineInfo:
+  description: 'Pipeline for lab #3 (Based on Colab Example)'
+  name: my-pipeline
+root:
+  dag:
+    tasks:
+      merge-csv-op:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-merge-csv-op
+        dependentTasks:
+        - web-downloader-op
+        inputs:
+          artifacts:
+            tar_data:
+              taskOutputArtifact:
+                outputArtifactKey: data
+                producerTask: web-downloader-op
+          parameters:
+            payload:
+              runtimeValue:
+                constant: 1933, "Something happened"
+        taskInfo:
+          name: merge-csv-op
+      web-downloader-op:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-web-downloader-op
+        inputs:
+          parameters:
+            url:
+              componentInputParameter: url
+        taskInfo:
+          name: web-downloader-op
+  inputDefinitions:
+    parameters:
+      url:
+        parameterType: STRING
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.16.1

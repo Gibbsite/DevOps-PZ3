@@ -1,0 +1,19 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: my-mlops-project
+  namespace: argocd
+spec:
+  project: default
+  source:
+    # ТУТ ВСТАВТЕ ПОСИЛАННЯ НА ВАШ GITHUB РЕПОЗИТОРІЙ
+    repoURL: 'https://github.com/ВАШ_ЛОГІН/ВАШ_РЕПОЗИТОРІЙ.git'
+    targetRevision: HEAD
+    path: . # Шукати YAML файли в корені репозиторію
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

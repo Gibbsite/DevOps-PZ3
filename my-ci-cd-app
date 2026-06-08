@@ -16,6 +16,6 @@ spec:
     spec:
       containers:
       - name: model-server
-        image: nginx:alpine # Використовуємо легкий образ для тесту
+        image: nginx:alpine
         ports:
         - containerPort: 80
